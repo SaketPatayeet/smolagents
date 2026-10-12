@@ -252,3 +252,33 @@ def test_wikipedia_search(language, content_type, extract_format, query):
         assert len(result.split()) < 1000, "Summary mode should return a shorter text"
     if content_type == "text":
         assert len(result.split()) > 1000, "Full text mode should return a longer text"
+
+class TestWebSearchToolDuckDuckGo:
+    """Tests for the DuckDuckGo HTML result parser in WebSearchTool."""
+
+    @staticmethod
+    def _parse(title_html):
+        html = (
+            f"<table><tr><td><a class='result-link'>{title_html}</a></td>"
+            "<td class='result-snippet'>There are <strong>17</strong> entries.</td>"
+            "<td><span class='link-text'>catalog.invalid/local</span></td>"
+            "</tr></table>"
+        )
+        parser = WebSearchTool(engine="duckduckgo")._create_duckduckgo_parser()
+        parser.feed(html)
+        return parser.results
+
+    @pytest.mark.parametrize(
+        "title_html, expected",
+        [
+            ("<b>Local</b> inventory &amp; count", "Local inventory & count"),
+            ("<b>Lo</b>cal", "Local"),
+            ("Local <i>inventory</i>", "Local inventory"),
+            ("Plain title", "Plain title"),
+        ],
+    )
+    def test_duckduckgo_parser_keeps_full_title(self, title_html, expected):
+        results = self._parse(title_html)
+        assert len(results) == 1
+        assert results[0]["title"] == expected
+        assert results[0]["description"] == "There are 17 entries."
